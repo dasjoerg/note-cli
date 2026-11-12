@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="note-cli ist ein kleines Bash-Tool, mit dem du Notizen direkt im aktuellen Projektordner speicherst.">
+  <meta name="theme-color" content="#f7f7f2">
+  <title>note-cli — Notizen im Terminal</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #20231f;
+      --muted: #656b63;
+      --paper: #f7f7f2;
+      --surface: #fff;
+      --line: #e4e6dc;
+      --green: #376b4a;
+      --green-dark: #28523a;
+      --lime: #d7ed9f;
+      --code: #202820;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .wrap {
+      width: min(1120px, calc(100% - 48px));
+      margin-inline: auto;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 82px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 11px;
+      color: var(--ink);
+      font-weight: 750;
+      letter-spacing: -0.04em;
+      text-decoration: none;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border-radius: 10px;
+      background: var(--green);
+      color: white;
+      font-family: var(--mono);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .nav a {
+      text-decoration: none;
+    }
+
+    .nav a:hover,
+    .text-link:hover {
+      color: var(--green-dark);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      align-items: center;
+      gap: 72px;
+      padding-block: 94px 100px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      margin: 0 0 20px;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 750;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #83aa55;
+      content: "";
+    }
+
+    h1,
+    h2,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      max-width: 610px;
+      margin-bottom: 22px;
+      font-size: clamp(46px, 6.5vw, 76px);
+      font-weight: 750;
+      letter-spacing: -0.075em;
+      line-height: 1.02;
+    }
+
+    h1 span {
+      color: var(--green);
+    }
+
+    .hero-copy {
+      max-width: 510px;
+      margin-bottom: 30px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .button {
+      display: inline-flex;
+      min-height: 48px;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 0 19px;
+      border: 1px solid var(--green);
+      border-radius: 8px;
+      background: var(--green);
+      color: white;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: background 150ms ease, transform 150ms ease;
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+      background: var(--green-dark);
+    }
+
+    .button.secondary {
+      border-color: var(--line);
+      background: transparent;
+      color: var(--ink);
+    }
+
+    .button.secondary:hover {
+      background: var(--surface);
+    }
+
+    .terminal {
+      overflow: hidden;
+      border: 1px solid #394239;
+      border-radius: 13px;
+      background: var(--code);
+      box-shadow: 0 26px 65px rgb(34 47 35 / 14%);
+      transform: rotate(1deg);
+    }
+
+    .terminal-head {
+      display: flex;
+      height: 45px;
+      align-items: center;
+      gap: 7px;
+      padding-inline: 16px;
+      border-bottom: 1px solid #394239;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #75816f;
+    }
+
+    .terminal-label {
+      margin-left: 7px;
+      color: #a7b0a2;
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
+    .terminal-body {
+      padding: 23px 24px 26px;
+      color: #ecf1e8;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 2;
+    }
+
+    .terminal-body p {
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .prompt {
+      color: #a8cf7c;
+    }
+
+    .output {
+      color: #aab4a6;
+    }
+
+    .saved {
+      color: #d5eea0;
+    }
+
+    .section {
+      padding-block: 82px;
+      border-top: 1px solid var(--line);
+    }
+
+    .section-heading {
+      max-width: 570px;
+      margin-bottom: 38px;
+    }
+
+    .section-heading h2 {
+      margin-bottom: 10px;
+      font-size: clamp(30px, 4vw, 43px);
+      letter-spacing: -0.055em;
+      line-height: 1.15;
+    }
+
+    .section-heading p {
+      margin-bottom: 0;
+      color: var(--muted);
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .feature {
+      min-height: 190px;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+
+    .feature-icon {
+      display: grid;
+      width: 36px;
+      height: 36px;
+      margin-bottom: 18px;
+      place-items: center;
+      border-radius: 9px;
+      background: #edf3e6;
+      color: var(--green);
+      font-family: var(--mono);
+      font-weight: 700;
+    }
+
+    .feature h3 {
+      margin: 0 0 7px;
+      font-size: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .feature p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .usage-grid {
+      display: grid;
+      grid-template-columns: 0.8fr 1.2fr;
+      align-items: start;
+      gap: 56px;
+    }
+
+    .usage-grid .section-heading {
+      margin-bottom: 0;
+    }
+
+    .commands {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+
+    .command {
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 14px;
+      padding: 19px 21px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .command:last-child {
+      border-bottom: 0;
+    }
+
+    .command code {
+      color: var(--green-dark);
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .command p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .install {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      gap: 50px;
+      padding: 38px;
+      border-radius: 13px;
+      background: var(--lime);
+    }
+
+    .install h2 {
+      margin-bottom: 10px;
+      font-size: 30px;
+      letter-spacing: -0.05em;
+      line-height: 1.15;
+    }
+
+    .install p {
+      margin: 0;
+      color: #4d5946;
+      font-size: 14px;
+    }
+
+    .install pre {
+      overflow-x: auto;
+      margin: 0;
+      padding: 18px 20px;
+      border-radius: 8px;
+      background: var(--code);
+      color: #ecf1e8;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.9;
+    }
+
+    .footer {
+      display: flex;
+      min-height: 100px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      margin-top: 82px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .footer p {
+      margin: 0;
+    }
+
+    .text-link {
+      color: var(--green);
+      font-weight: 650;
+      text-decoration: none;
+    }
+
+    @media (max-width: 760px) {
+      .wrap {
+        width: min(100% - 36px, 560px);
+      }
+
+      .topbar {
+        min-height: 70px;
+      }
+
+      .nav {
+        gap: 16px;
+        font-size: 13px;
+      }
+
+      .nav a:first-child {
+        display: none;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+        gap: 43px;
+        padding-block: 68px 74px;
+      }
+
+      .terminal {
+        max-width: 540px;
+        transform: none;
+      }
+
+      .section {
+        padding-block: 64px;
+      }
+
+      .features {
+        grid-template-columns: 1fr;
+      }
+
+      .feature {
+        min-height: auto;
+      }
+
+      .usage-grid,
+      .install {
+        grid-template-columns: 1fr;
+        gap: 28px;
+      }
+
+      .install {
+        padding: 26px;
+      }
+
+      .footer {
+        min-height: 90px;
+        margin-top: 64px;
+      }
+    }
+
+    @media (max-width: 430px) {
+      .nav a:nth-child(2) {
+        display: none;
+      }
+
+      .hero-copy {
+        font-size: 16px;
+      }
+
+      .terminal-body {
+        padding-inline: 16px;
+        font-size: 11px;
+      }
+
+      .command {
+        grid-template-columns: 1fr;
+        gap: 4px;
+      }
+
+      .footer {
+        align-items: flex-start;
+        flex-direction: column;
+        justify-content: center;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+
+      *,
+      *::before,
+      *::after {
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="wrap topbar">
+    <a class="brand" href="#" aria-label="note-cli Startseite">
+      <span class="brand-mark" aria-hidden="true">n.</span>
+      <span>note-cli</span>
+    </a>
+    <nav class="nav" aria-label="Hauptnavigation">
+      <a href="#funktionen">Funktionen</a>
+      <a href="#verwendung">Verwendung</a>
+      <a href="https://github.com/dasjoerg/note-cli">GitHub <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="wrap hero" aria-labelledby="hero-title">
+      <div>
+        <p class="eyebrow">Klein. Lokal. Im Terminal.</p>
+        <h1 id="hero-title">Deine Notizen.<br><span>Direkt im Projekt.</span></h1>
+        <p class="hero-copy">note-cli ist ein einfaches Bash-Tool, mit dem du kurze Notizen im aktuellen Arbeitsverzeichnis speicherst und wiederfindest.</p>
+        <div class="actions">
+          <a class="button" href="#installation">Schnell loslegen <span aria-hidden="true">↓</span></a>
+          <a class="button secondary" href="https://github.com/dasjoerg/note-cli">Quellcode ansehen <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+
+      <div class="terminal" role="img" aria-label="Terminal-Beispiel: Notiz speichern und auflisten">
+        <div class="terminal-head" aria-hidden="true">
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="terminal-label">~/mein-projekt</span>
+        </div>
+        <div class="terminal-body" aria-hidden="true">
+          <p><span class="prompt">$</span> ./note add "Idee für morgen"</p>
+          <p class="saved">f948cae8a5c210f025b417b56271fc5235e4aebbcd3288db7d835d8b77f1a418</p>
+          <p><span class="prompt">$</span> ./note list</p>
+          <p class="output">f948cae8a5c210f025b417b56271fc5235e4aebbcd3288db7d835d8b77f1a418    Idee für morgen</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="funktionen">
+      <div class="wrap">
+        <div class="section-heading">
+          <p class="eyebrow">Weniger Ballast</p>
+          <h2>Ein kleines Tool, das einfach seinen Job macht.</h2>
+          <p>Keine Oberfläche, kein Konto, keine komplizierte Einrichtung. Nur ein Skript für Notizen, die zu deinem Arbeitsordner gehören.</p>
+        </div>
+        <div class="features">
+          <article class="feature">
+            <span class="feature-icon" aria-hidden="true">#</span>
+            <h3>Automatisch dedupliziert</h3>
+            <p>Der Inhalt bestimmt den SHA-256-Hash. Derselbe Text landet so immer unter demselben Dateinamen.</p>
+          </article>
+          <article class="feature">
+            <span class="feature-icon" aria-hidden="true">⌂</span>
+            <h3>Bleibt bei deinem Projekt</h3>
+            <p>Notizen werden lokal unter <code>.notes/db/</code> im aktuellen Arbeitsverzeichnis abgelegt.</p>
+          </article>
+          <article class="feature">
+            <span class="feature-icon" aria-hidden="true">&lt;/&gt;</span>
+            <h3>Einfaches Bash-Skript</h3>
+            <p>Der Quellcode ist ein einzelnes Skript. Du kannst direkt nachsehen, was es tut.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="verwendung">
+      <div class="wrap usage-grid">
+        <div class="section-heading">
+          <p class="eyebrow">Zwei Befehle</p>
+          <h2>Notiz rein.<br>Wissen wieder da.</h2>
+          <p>Wechsle in dein Projektverzeichnis und nutze das Skript direkt. Die Notizen bleiben auf deinem Rechner.</p>
+        </div>
+        <div class="commands" aria-label="Befehle">
+          <div class="command">
+            <code>note add &lt;text&gt;</code>
+            <p>Speichert eine Notiz und gibt ihren SHA-256-Hash aus.</p>
+          </div>
+          <div class="command">
+            <code>note list</code>
+            <p>Zeigt die gespeicherten Notizen mit Hash und Inhalt an.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="wrap" id="installation">
+      <div class="install">
+        <div>
+          <p class="eyebrow">In wenigen Sekunden</p>
+          <h2>Direkt ausprobieren.</h2>
+          <p>Repository klonen, Skript ausführbar machen und im Projektordner eine Notiz speichern. Benötigt Bash sowie <code>shasum</code> und <code>awk</code>.</p>
+        </div>
+        <pre><code>git clone https://github.com/dasjoerg/note-cli.git
+cd note-cli
+chmod +x note
+./note add "Meine erste Notiz"
+./note list</code></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap footer">
+    <p>note-cli — ein kleines Open-Source-Projekt.</p>
+    <a class="text-link" href="https://github.com/dasjoerg/note-cli">Auf GitHub ansehen <span aria-hidden="true">↗</span></a>
+  </footer>
+</body>
+</html>
